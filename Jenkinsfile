@@ -42,9 +42,9 @@ pipeline {
         stage('Build React App') {
             steps {
                 sh '''
-                export NODE_OPTIONS="--max-old-space-size=2048"
-                export CI=false
-                npm run build
+                    export NODE_OPTIONS="--max-old-space-size=2048"
+                    export CI=false
+                    npm run build
                 '''
             }
         }
@@ -57,7 +57,7 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarCloud') {
                     sh '''
-                    $SCANNER_HOME/bin/sonar-scanner
+                        $SCANNER_HOME/bin/sonar-scanner
                     '''
                 }
             }
@@ -79,7 +79,7 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                     '''
                 }
             }
@@ -90,16 +90,26 @@ pipeline {
                 sh 'docker push $IMAGE_NAME:latest'
             }
         }
+
+        stage('Deploy Container') {
+            steps {
+                sh '''
+                    docker stop starbucks || true
+                    docker rm starbucks || true
+                    docker run -d --name starbucks -p 3000:3000 $IMAGE_NAME:latest
+                '''
+            }
+        }
     }
 
     post {
 
         success {
-            echo 'Pipeline executed successfully!'
+            echo "Pipeline executed successfully!"
         }
 
         failure {
-            echo 'Pipeline execution failed!'
+            echo "Pipeline execution failed!"
         }
 
         always {
