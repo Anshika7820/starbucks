@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = "YOUR_DOCKERHUB_USERNAME/starbucks:latest"
+        IMAGE_NAME = "anshi1008/starbucks:latest"
     }
 
     stages {
@@ -42,8 +42,8 @@ pipeline {
         stage('Build React App') {
             steps {
                 sh '''
-                export CI=false
                 export NODE_OPTIONS="--max-old-space-size=2048"
+                export CI=false
                 npm run build
                 '''
             }
@@ -79,43 +79,41 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
-            steps {
-                sh '''
-                trivy image $IMAGE_NAME > trivy-report.txt || true
-                '''
-            }
-        }
-
-        stage('Deploy Docker Container') {
+        stage('Deploy Container') {
             steps {
                 sh '''
                 docker stop starbucks || true
                 docker rm starbucks || true
 
                 docker run -d \
-                  --name starbucks \
-                  -p 3000:3000 \
-                  $IMAGE_NAME
+                    --name starbucks \
+                    -p 3000:80 \
+                    $IMAGE_NAME
                 '''
             }
         }
 
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                docker ps
+                '''
+            }
+        }
     }
 
     post {
 
+        always {
+            cleanWs()
+        }
+
         success {
-            echo 'Build completed successfully!'
+            echo 'Pipeline completed successfully!'
         }
 
         failure {
-            echo 'Build failed!'
-        }
-
-        always {
-            archiveArtifacts artifacts: 'trivy-report.txt', allowEmptyArchive: true
-            cleanWs()
+            echo 'Pipeline failed!'
         }
     }
 }
