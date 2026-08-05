@@ -5,6 +5,10 @@ pipeline {
         nodejs 'NodeJS'
     }
 
+    environment {
+        IMAGE_NAME = "YOUR_DOCKERHUB_USERNAME/starbucks:latest"
+    }
+
     stages {
 
         stage('Clean Workspace') {
@@ -25,6 +29,7 @@ pipeline {
                 sh 'node -v'
                 sh 'npm -v'
                 sh 'git --version'
+                sh 'docker --version'
             }
         }
 
@@ -34,28 +39,71 @@ pipeline {
             }
         }
 
-        stage('Build Application') {
+        stage('Build React App') {
             steps {
                 sh '''
-                export NODE_OPTIONS="--max-old-space-size=2048"
                 export CI=false
+                export NODE_OPTIONS="--max-old-space-size=2048"
                 npm run build
                 '''
             }
         }
 
-        stage('Test Docker') {
+        stage('Build Docker Image') {
             steps {
-                sh 'docker --version'
-                sh 'docker ps'
+                sh '''
+                docker build -t $IMAGE_NAME .
+                '''
             }
         }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh '''
+                docker push $IMAGE_NAME
+                '''
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                trivy image $IMAGE_NAME > trivy-report.txt || true
+                '''
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                sh '''
+                docker stop starbucks || true
+                docker rm starbucks || true
+
+                docker run -d \
+                  --name starbucks \
+                  -p 3000:3000 \
+                  $IMAGE_NAME
+                '''
+            }
+        }
+
     }
 
     post {
-        always {
-            cleanWs()
-        }
 
         success {
             echo 'Build completed successfully!'
@@ -63,6 +111,11 @@ pipeline {
 
         failure {
             echo 'Build failed!'
+        }
+
+        always {
+            archiveArtifacts artifacts: 'trivy-report.txt', allowEmptyArchive: true
+            cleanWs()
         }
     }
 }
