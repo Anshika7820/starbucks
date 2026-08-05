@@ -15,7 +15,8 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/Anshika7820/starbucks.git'
+                git branch: 'main',
+                    url: 'https://github.com/Anshika7820/starbucks.git'
             }
         }
 
@@ -37,6 +38,7 @@ pipeline {
             steps {
                 sh '''
                 export NODE_OPTIONS="--max-old-space-size=2048"
+                export CI=false
                 npm run build
                 '''
             }
@@ -44,16 +46,16 @@ pipeline {
     }
 
     post {
+        always {
+            cleanWs()
+        }
+
         success {
             echo 'Build completed successfully!'
         }
 
         failure {
             echo 'Build failed!'
-        }
-
-        always {
-            cleanWs()
         }
     }
 }
