@@ -51,15 +51,19 @@ pipeline {
         }
 
         stage('SonarCloud Scan') {
+
             environment {
                 SCANNER_HOME = tool 'sonar-scanner'
                 SONAR_SCANNER_OPTS = "-Xmx1024m"
+                NODE_OPTIONS = "--max-old-space-size=2048"
             }
 
             steps {
                 withSonarQubeEnv('SonarCloud') {
                     sh '''
                         export NODE_OPTIONS="--max-old-space-size=2048"
+                        export SONAR_SCANNER_OPTS="-Xmx1024m"
+
                         $SCANNER_HOME/bin/sonar-scanner
                     '''
                 }
@@ -69,9 +73,10 @@ pipeline {
         stage('Trivy File System Scan') {
             steps {
                 sh '''
-                    trivy fs . \
+                    trivy fs \
+                    --severity HIGH,CRITICAL \
                     --format table \
-                    --severity HIGH,CRITICAL
+                    .
                 '''
             }
         }
@@ -79,6 +84,17 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh 'docker build -t $IMAGE_NAME:latest .'
+            }
+        }
+
+        stage('Trivy Docker Image Scan') {
+            steps {
+                sh '''
+                    trivy image \
+                    --severity HIGH,CRITICAL \
+                    --format table \
+                    $IMAGE_NAME:latest
+                '''
             }
         }
 
@@ -109,19 +125,24 @@ pipeline {
                 sh '''
                     docker stop starbucks || true
                     docker rm starbucks || true
-                    docker run -d --name starbucks -p 3000:3000 $IMAGE_NAME:latest
+
+                    docker run -d \
+                    --name starbucks \
+                    -p 3000:3000 \
+                    $IMAGE_NAME:latest
                 '''
             }
         }
     }
 
     post {
+
         success {
-            echo 'Pipeline executed successfully!'
+            echo "Pipeline executed successfully!"
         }
 
         failure {
-            echo 'Pipeline execution failed!'
+            echo "Pipeline execution failed!"
         }
 
         always {
