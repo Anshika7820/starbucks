@@ -1,12 +1,12 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs 'NodeJS'
-    }
-
     environment {
         IMAGE_NAME = "anshi1008/starbucks:latest"
+    }
+
+    tools {
+        nodejs 'NodeJS'
     }
 
     stages {
@@ -65,7 +65,7 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                     '''
                 }
             }
@@ -86,24 +86,15 @@ pipeline {
                 docker rm starbucks || true
 
                 docker run -d \
-                    --name starbucks \
-                    -p 3000:80 \
-                    $IMAGE_NAME
-                '''
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                sh '''
-                docker ps
+                --name starbucks \
+                -p 3000:3000 \
+                $IMAGE_NAME
                 '''
             }
         }
     }
 
     post {
-
         always {
             cleanWs()
         }
