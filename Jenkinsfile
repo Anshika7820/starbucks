@@ -50,13 +50,18 @@ pipeline {
         }
 
         stage('SonarCloud Scan') {
+
             environment {
                 SCANNER_HOME = tool 'sonar-scanner'
+                SONAR_SCANNER_OPTS = "-Xmx1024m"
+                NODE_OPTIONS = "--max-old-space-size=2048"
             }
 
             steps {
                 withSonarQubeEnv('SonarCloud') {
                     sh '''
+                        export NODE_OPTIONS="--max-old-space-size=2048"
+                        export SONAR_SCANNER_OPTS="-Xmx1024m"
                         $SCANNER_HOME/bin/sonar-scanner
                     '''
                 }
