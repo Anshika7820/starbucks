@@ -1,12 +1,12 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "anshi1008/starbucks:latest"
-    }
-
     tools {
         nodejs 'NodeJS'
+    }
+
+    environment {
+        IMAGE_NAME = "anshi1008/starbucks"
     }
 
     stages {
@@ -28,8 +28,8 @@ pipeline {
             steps {
                 sh 'node -v'
                 sh 'npm -v'
-                sh 'git --version'
                 sh 'docker --version'
+                sh 'git --version'
             }
         }
 
@@ -49,11 +49,17 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('SonarCloud Scan') {
             steps {
-                sh '''
-                docker build -t $IMAGE_NAME .
-                '''
+                withSonarQubeEnv('SonarCloud') {
+                    sh 'sonar-scanner'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME:latest .'
             }
         }
 
@@ -71,40 +77,26 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Docker Push') {
             steps {
-                sh '''
-                docker push $IMAGE_NAME
-                '''
+                sh 'docker push $IMAGE_NAME:latest'
             }
         }
 
-        stage('Deploy Container') {
-            steps {
-                sh '''
-                docker stop starbucks || true
-                docker rm starbucks || true
-
-                docker run -d \
-                --name starbucks \
-                -p 3000:3000 \
-                $IMAGE_NAME
-                '''
-            }
-        }
     }
 
     post {
-        always {
-            cleanWs()
-        }
 
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'Pipeline executed successfully.'
         }
 
         failure {
-            echo 'Pipeline failed!'
+            echo 'Pipeline execution failed.'
+        }
+
+        always {
+            cleanWs()
         }
     }
 }
